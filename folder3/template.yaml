@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'This Template is incorrect, kindly correct it.'
+Parameters:
+  amiId:
+    Type: String
+    Default: ami-04e5276ebb8451442
+    Description: Choose an Ubuntu AMI
+  keyPair:
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Description: Choose your Ubuntu AMI
+  dbMasterUserName:
+    Type: String
+    Default: admin
+    Description: 'This will be the username, used to connect to your database'
+  dbMasterPassword:
+    Type: String
+    Default: Admin9876
+    Description: 'This will be the password, used to connect to your database'
+Resources:
+  vpc:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 192.168.0.0/24
+      Tags:
+        - Key: Name
+          Value: vpc
+        - Key: Env
+          Value: Intellipaat
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+  publicSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      CidrBlock: 192.168.0.0/28
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: pubSub
+        - Key: Env
+          Value: Intellipaat
+  privateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      CidrBlock: 192.168.0.16/28
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: priSub1
+        - Key: Env
+          Value: Intellipaat
+  privateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      MapPublicIpOnLaunch: false
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      CidrBlock: 192.168.0.32/28
+      VpcId: !Ref vpc
+      Tags:
+        - Key: Name
+          Value: priSub2
+        - Key: Env
+          Value: Intellipaat
+  instanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref vpc
+      GroupName: instanceSecurityGroup
+      GroupDescription: This will allow connection from anywhere
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '22'
+          ToPort: '22'
+          IpProtocol: tcp
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1
+  rdsSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref vpc
+      GroupName: rdsSecurityGroup
+      GroupDescription: This will allow connection from public subnet only
+      SecurityGroupIngress:
+        - CidrIp: 192.168.0.0/28
+          FromPort: '3306'
+          ToPort: '3306'
+          IpProtocol: tcp
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: -1
+  igw:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: igw
+        - Key: Env
+          Value: Intellipaat
+  igwToVpc:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref igw
+      VpcId: !Ref vpc
+  publicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref vpc
+  publicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref igw
+  publicSubnetAssossciation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref publicRouteTable
+      SubnetId: !Ref publicSubnet
+  publicInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      SubnetId: !Ref publicSubnet
+      KeyName: !Ref keyPair
+      ImageId: !Ref amiId
+      SecurityGroups: [!Ref instanceSecurityGroup]
+      InstanceType: t2.micro
+      Tags:
+        - Key: Name
+          Value: instance
+        - Key: Env
+          Value: Intellipaat
+  rdsSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupName: rdsSubnetGroup
+      DBSubnetGroupDescription: It will contain subnet that rds should contain
+      SubnetIds:
+        - !Ref privateSubnet1
+        - !Ref privateSubnet2
+  rds:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      Port: '3306'
+      DBInstanceIdentifier: intellipaat
+      MultiAZ: false
+      Engine: MYSQL
+      DBInstanceClass: db.t2.micro
+      StorageType: gp2
+      DBSubnetGroupName: !Ref rdsSubnetGroup
+      VPCSecurityGroups:
+        - !Ref rdsSecurityGroup
+      EngineVersion: 8.0.28
+      DeletionProtection: false
+      AllocatedStorage: '20'
+      MaxAllocatedStorage: 1000
+      MasterUsername: !Ref dbMasterUserName
+      MasterUserPassword: !Ref dbMasterPassword
