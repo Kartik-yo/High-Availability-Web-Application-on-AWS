@@ -25,8 +25,8 @@ This project involves the design and implementation of a high-availability multi
 ## How to Deploy
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-repo-link.git
-   cd your-repo-link
+   git clone https://github.com/Kartik-yo/High-Availability-Web-Application-on-AWS.git
+   cd High-Availability-Web-Application-on-AWS
 
 2. Configure AWS credentials.
 3. Deploy infrastructure using Terraform:
